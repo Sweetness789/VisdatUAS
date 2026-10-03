@@ -406,7 +406,7 @@ def hero():
         <div class="hero-logo">{ikon('api')}</div>
         <div class="eyebrow">DATA STORYTELLING &nbsp;•&nbsp; KARHUTLA {TAHUN}</div>
         <h1 class="hero-title">TITIK API <span>NUSANTARA</span></h1>
-        <p class="hero-sub">{SUBJUDUL}.Dari panas yang terekam di angkasa, rekam jejak bencana di atas tanah, hingga makna yang tersembunyi dalam publikasi resmi BPS, ini adalah narasi data tentang kerentanan 38 provinsi di Indonesia, sebuah kompas untuk menebak arah datangnya titik api.</p>
+        <p class="hero-sub">{SUBJUDUL} Dari panas yang terekam di angkasa, rekam jejak bencana di atas tanah, hingga makna yang tersembunyi dalam publikasi resmi BPS, ini adalah narasi data tentang kerentanan 38 provinsi di Indonesia, sebuah kompas untuk menebak arah datangnya titik api.</p>
         <div class="kpis">
           <div class="kpi"><b>{tot:,}</b><small>kejadian Karhutla {TAHUN}</small></div>
           <div class="kpi"><b>{top.prov}</b><small>provinsi tertinggi ({int(top.karhutla)} kejadian)</small></div>
