@@ -44,7 +44,7 @@ ICON_DIR = BASE / "assets" / "icons"
 
 TAHUN = 2025
 JUDUL = "TITIK API NUSANTARA"
-SUBJUDUL = "Membaca potensi kebakaran hutan dan lahan (Karhutla) di 38 provinsi Indonesia"
+SUBJUDUL = "Api tidak menyala tanpa jejak."
 
 # TODO: isi sesuai sumber aslimu. Teks ini muncul di footer dan pada anotasi grafik.
 SUMBER_BENCANA = "BPS - Statistik Bencana per Provinsi 2025"            # TODO: judul tabel BPS persisnya
@@ -406,8 +406,7 @@ def hero():
         <div class="hero-logo">{ikon('api')}</div>
         <div class="eyebrow">DATA STORYTELLING &nbsp;•&nbsp; KARHUTLA {TAHUN}</div>
         <h1 class="hero-title">TITIK API <span>NUSANTARA</span></h1>
-        <p class="hero-sub">{SUBJUDUL}. Dari citra satelit, data kejadian bencana BPS, hingga apa yang dibicarakan
-        publikasi resmi, satu cerita tentang di mana api paling mungkin menyala.</p>
+        <p class="hero-sub">{SUBJUDUL}.Dari panas yang terekam di angkasa, rekam jejak bencana di atas tanah, hingga makna yang tersembunyi dalam publikasi resmi BPS, ini adalah narasi data tentang kerentanan 38 provinsi di Indonesia, sebuah kompas untuk menebak arah datangnya titik api.</p>
         <div class="kpis">
           <div class="kpi"><b>{tot:,}</b><small>kejadian Karhutla {TAHUN}</small></div>
           <div class="kpi"><b>{top.prov}</b><small>provinsi tertinggi ({int(top.karhutla)} kejadian)</small></div>
