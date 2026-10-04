@@ -183,6 +183,10 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
 div[data-testid="stPlotlyChart"] {background:rgba(255,255,255,.015); border:1px solid rgba(255,140,60,.12); border-radius:16px; padding:.3rem;}
 .stButton>button {border-radius:99px; border:1px solid rgba(255,140,60,.45); background:rgba(255,107,26,.08);}
 .stButton>button:hover {border-color:#ff9f1c; background:rgba(255,107,26,.25);}
+.st-key-wc {background:rgba(255,255,255,.015); border:1px solid rgba(255,140,60,.12); border-radius:16px; padding:.5rem .8rem; height:452px; overflow:hidden;}
+.st-key-wc img {height:352px !important; width:100% !important; object-fit:contain;}
+.wc-title {font-size:16px; font-weight:400; color:#f3e9dc; margin:.2rem 0 .5rem; display:flex; justify-content:space-between; align-items:center;}
+.st-key-panel3 {background:linear-gradient(135deg,rgba(255,107,26,.07),rgba(255,107,26,.015));}
 .footer {margin-top:3rem; padding:1.2rem; border-top:1px solid rgba(255,140,60,.25); color:#bba998; font-size:.85rem;}
 
 @media (max-width:640px){ .hero{padding:3rem 1rem 7rem;} .kpi{min-width:42%;} .flames{height:120px;} }
@@ -680,54 +684,66 @@ cerita(
 # =============================================================================
 # 7. BAB 3 - DATA TEKS (WORD CLOUD + KO-OKURENSI + TREN TOPIK)
 # =============================================================================
-bab(3, "SUARA DOKUMEN BPS", f"{len(corpus)} judul dan abstrak publikasi BPS bertema lingkungan, kehutanan, dan kebencanaan "
-    "(sudah dibersihkan: case folding, tokenisasi, stopword, stemming). Apa yang sebenarnya dibicarakan, dan sejak kapan?", "teks")
+bab(3, "MENGUNGKAP NARASI BPS",
+    f"Di balik deretan angka statistik, ada narasi yang tersembunyi. Kami mengekstraksi {len(corpus)} abstrak dan judul publikasi BPS "
+    "terkait krisis lingkungan dan kebencanaan. Setelah teks disaring dan diproses secara algoritmik, sebuah pola terungkap. "
+    "Apa isu yang sebenarnya paling nyaring disuarakan oleh pemerintah, dan kapan tepatnya narasi tersebut bermula?", "teks")
 
 UMUM = {"indonesia", "saji", "hasil", "informasi", "manfaat", "muat", "booklet", "tuju", "harap", "guna", "cakup",
         "susun", "lengkap", "jelas", "gambar", "lanjut", "dasar", "bangun", "kait", "sumber", "usaha", "kerja",
         "kembang", "olah", "tingkat", "banding", "perintah", "giat", "peran", "sosial", "ekonomi"}
 
-f1, f2, f3 = st.columns([1.4, 1.6, 1])
+SRC_TEKS = "Sumber: BPS, judul dan abstrak publikasi"
+LEBAR = [1.3, 1.7, 1]
+TINGGI3 = 440
 tmin, tmax = int(corpus.tahun.min()), int(corpus.tahun.max())
-with f1:
-    rentang = st.slider("Periode rilis", tmin, tmax, (tmin, tmax))
-with f2:
+
+# ---------- Panel kontrol: baris 1 = saring dokumen, baris 2 = atur visual ----------
+with st.container(border=True, key="panel3"):
+    st.markdown("**Saring dokumen**")
+    f1, f2, f3 = st.columns(LEBAR, vertical_alignment="bottom")
+    rentang = f1.slider("Periode rilis", tmin, tmax, (tmin, tmax))
     temas = sorted(corpus.kata_kunci.unique())
-    tema_pilih = st.multiselect("Tema (kata kunci dokumen)", temas, default=temas)
-with f3:
-    sembunyi = st.checkbox("Sembunyikan kata umum publikasi", value=True)
+    tema_pilih = f2.multiselect("Tema (kata kunci dokumen)", temas, default=temas)
+    sembunyi = f3.toggle("Sembunyikan kata umum publikasi", value=True)
 
-sub = corpus[corpus.tahun.between(*rentang) & corpus.kata_kunci.isin(tema_pilih)].copy()
-stop = UMUM if sembunyi else set()
-tok = [[w for w in t.split() if len(w) >= 3 and w not in stop] for t in sub.teks_bersih]
+    sub = corpus[corpus.tahun.between(*rentang) & corpus.kata_kunci.isin(tema_pilih)].copy()
+    stop = UMUM if sembunyi else set()
+    tok = [[w for w in t.split() if len(w) >= 3 and w not in stop] for t in sub.teks_bersih]
+    cukup = len(sub) >= 10
 
-if len(sub) < 10:
-    st.warning("Dokumen terlalu sedikit untuk dianalisis. Longgarkan filter periode / tema.")
-else:
-    t1, t2 = st.columns(2)
-    # ---------- Word cloud ----------
-    with t1:
-        freq = collections.Counter(w for d in tok for w in d)
-        cmap = LinearSegmentedColormap.from_list("api", ["#ffd166", "#ff9f1c", "#ff5d1f", "#ff8a80"])
-        wc = WordCloud(width=1000, height=640, mode="RGBA", background_color=None, colormap=cmap, max_words=70,
-                       prefer_horizontal=0.92, random_state=7).generate_from_frequencies(freq)
-        st.markdown(f"**Word cloud** &nbsp;<span class='tag'>{len(sub)} dokumen</span>", unsafe_allow_html=True)
-        st.image(wc.to_array(), **STRETCH)
-        st.caption(f"Ukuran kata = frekuensi pada {len(sub)} dokumen. Sumber: BPS ({SUMBER_TEKS}).")
-
-    # ---------- Ko-okurensi ----------
-    with t2:
+    if cukup:
         dfreq = collections.Counter(w for d in tok for w in set(d))
         vocab = {w for w, c in dfreq.items() if c >= 3}
         pair = collections.Counter()
         for d in tok:
-            ws = sorted(set(d) & vocab)
-            pair.update(itertools.combinations(ws, 2))
+            pair.update(itertools.combinations(sorted(set(d) & vocab), 2))
         kandidat = [w for w in ["hutan", "lahan", "bencana", "iklim", "emisi", "kalimantan", "lingkung"] if w in vocab]
         kandidat += [w for w, _ in dfreq.most_common(15) if w not in kandidat]
-        a, b = st.columns([1.2, 1])
-        fokus_kata = a.selectbox("Kata fokus", kandidat, index=0)
-        k_nb = b.slider("Jumlah tetangga", 5, 20, 12)
+        st.markdown("**Atur tampilan**")
+        g1, g2, g3 = st.columns(LEBAR, vertical_alignment="bottom")
+        fokus_kata = g1.selectbox("Kata fokus jaringan", kandidat, index=0)
+        k_nb = g2.slider("Jumlah kata tetangga", 5, 20, 12)
+        k_top = g3.slider("Jumlah topik (LDA)", 3, 6, 4)
+
+if not cukup:
+    st.warning("Dokumen terlalu sedikit untuk dianalisis. Longgarkan filter periode / tema.")
+else:
+    t1, t2 = st.columns(2)
+
+    # ---------- Word cloud ----------
+    with t1:
+        freq = collections.Counter(w for d in tok for w in d)
+        cmap = LinearSegmentedColormap.from_list("api", ["#ffd166", "#ff9f1c", "#ff5d1f", "#ff8a80"])
+        wc = WordCloud(width=1000, height=620, mode="RGBA", background_color=None, colormap=cmap, max_words=70,
+                       prefer_horizontal=0.92, random_state=7).generate_from_frequencies(freq)
+        with st.container(key="wc"):
+            html(f'<div class="wc-title"><span>Word cloud: kata paling sering muncul</span><span class="tag">{len(sub)} dokumen</span></div>')
+            st.image(wc.to_array(), **STRETCH)
+            st.caption(f"{SRC_TEKS}; ukuran kata = frekuensi")
+
+    # ---------- Ko-okurensi ----------
+    with t2:
         nb = sorted(((p[1] if p[0] == fokus_kata else p[0], c) for p, c in pair.items() if fokus_kata in p), key=lambda x: -x[1])[:k_nb]
         nodes = [fokus_kata] + [n for n, _ in nb]
         G = nx.Graph()
@@ -748,15 +764,17 @@ else:
             deg = dict(G.degree(weight="weight"))
             fg.add_trace(go.Scatter(
                 x=[pos[n][0] for n in G], y=[pos[n][1] for n in G], mode="markers+text", text=list(G.nodes), textposition="top center",
-                textfont=dict(size=11, color="#fff4e0"), showlegend=False,
+                textfont=dict(size=11, color="#fff4e0"), showlegend=False, cliponaxis=False,
                 marker=dict(size=[34 if n == fokus_kata else 12 + 22 * deg[n] / max(deg.values()) for n in G],
                             color=[API if n == fokus_kata else OKABE[(comm[n] + 1) % 7] for n in G],
                             line=dict(width=1, color="#140d0d")),
                 customdata=[deg[n] for n in G], hovertemplate="<b>%{text}</b><br>Bobot ko-okurensi: %{customdata}<extra></extra>"))
-            fg.update_xaxes(visible=False)
-            fg.update_yaxes(visible=False)
-            finish(fg, f"Jaringan ko-okurensi: \"{fokus_kata}\"", 470,
-                   "ukuran = bobot koneksi; warna = komunitas; tebal garis = frekuensi muncul bersama", -0.05, legend=False)
+            xs_, ys_ = [p[0] for p in pos.values()], [p[1] for p in pos.values()]
+            fg.update_xaxes(visible=False, range=[min(xs_) - 0.25, max(xs_) + 0.25])
+            fg.update_yaxes(visible=False, range=[min(ys_) - 0.25, max(ys_) + 0.3])
+            finish(fg, f"Jaringan ko-okurensi: \"{fokus_kata}\"", TINGGI3, "", -0.02, legend=False,
+                   sumber_teks=SRC_TEKS + "; ukuran titik = bobot, warna = komunitas")
+            fg.update_layout(margin=dict(l=10, r=10, t=56, b=40))
             st.plotly_chart(fg, key="net", **STRETCH)
 
     # ---------- Tren topik ----------
@@ -769,7 +787,6 @@ else:
         lab = [", ".join(terms[np.argsort(c)[::-1][:4]]) for c in lda.components_]
         return lda.transform(X), lab
 
-    k_top = st.slider("Jumlah topik (LDA)", 3, 6, 4)
     dt, tlabel = lda_run(tuple(sub.teks_bersih), k_top, tuple(sorted(stop)))
     sub["topik"] = dt.argmax(axis=1)
     thn = list(range(rentang[0], rentang[1] + 1))
@@ -779,10 +796,13 @@ else:
         y = ct[k] if k in ct.columns else [0] * len(thn)
         fb.add_trace(go.Bar(x=thn, y=y, name=f"T{k+1}: {tlabel[k]}", marker_color=OKABE[[1, 5, 2, 0, 6, 4][k]],
                             hovertemplate="%{x}<br>%{y} dokumen<extra>T" + str(k + 1) + "</extra>"))
-    fb.update_layout(barmode="stack", legend=dict(orientation="h", y=-0.28, x=0, xanchor="left", yanchor="top"))
     fb.update_yaxes(title="Jumlah publikasi", gridcolor="rgba(255,255,255,.06)")
     fb.update_xaxes(title="Tahun rilis", dtick=2)
-    finish(fb, "Tren topik publikasi BPS (topic modeling LDA)", 480, "topik = topik dominan tiap dokumen", -0.42)
+    finish(fb, "Tren topik publikasi BPS (topic modeling LDA)", 440, "", -0.22,
+           sumber_teks=SRC_TEKS + "; topik = topik dominan tiap dokumen")
+    fb.update_layout(barmode="stack", margin=dict(l=10, r=10, t=56, b=84),
+                     legend=dict(orientation="v", x=1.01, xanchor="left", y=1, yanchor="top", bgcolor="rgba(0,0,0,0)",
+                                 font=dict(size=11)))
     st.plotly_chart(fb, key="trend", **STRETCH)
 
     n_bakar = int(sub.teks_bersih.str.contains(r"\bbakar\b|\bkarhutla\b|\bapi\b").sum())
@@ -800,8 +820,10 @@ else:
 # =============================================================================
 # 8. BAB 4 - PROVINSI SIAGA (KESIMPULAN)
 # =============================================================================
-bab(4, "PROVINSI SIAGA", "Indeks Kondisi Rentan (0-100) merangkum lima indikator kekeringan: LST tinggi, hujan rendah, "
-    "kelembapan rendah, NBR rendah, NDVI rendah. Bandingkan dengan kejadian Karhutla yang benar-benar tercatat.", "siaga")
+bab(4, "PROVINSI SIAGA",
+    "Indeks Kondisi Rentan (0-100) diformulasikan dari lima sinyal bahaya satelit: suhu permukaan (LST) yang memanas, "
+    "serta anjloknya curah hujan, kelembapan, NBR, dan NDVI. Mari kita benturkan potensi di atas kertas ini dengan "
+    "realitas kobaran api yang benar-benar tercatat di lapangan.", "siaga")
 
 ex = st.checkbox("Kecualikan DKI Jakarta (suhu tinggi karena wilayah perkotaan, bukan lahan vegetasi)", value=True)
 dd = df[df.prov != "DKI Jakarta"] if ex else df
@@ -846,8 +868,11 @@ cerita(
 # =============================================================================
 # 9. BAB 5 - DATA GEOSPASIAL (choropleth + lingkaran proporsional + klaster LISA)
 # =============================================================================
-bab(5, "PETA KAB/KOTA", "Bab 1-4 membaca provinsi. Di sini 514 kab/kota diperiksa satu per satu: di mana kejadian Karhutla "
-    "paling padat per luas wilayah, di mana jumlahnya terbanyak, dan di mana api mengelompok secara spasial (klaster LISA).", "peta")
+bab(5, "PETA KAB/KOTA",
+    "Membaca data provinsi ibarat melihat hutan dari kejauhan, detailnya sering kali kabur. Kini, kita turun langsung ke "
+    "garis depan. Membedah 514 kabupaten dan kota untuk melacak titik nadir kebakaran: di mana api paling sesak membakar "
+    "ruang, siapa pemegang rekor insiden terbanyak, dan bagaimana bara ini diam-diam merambat membentuk zona merah "
+    "(klaster LISA).", "peta")
 
 
 @st.cache_resource
