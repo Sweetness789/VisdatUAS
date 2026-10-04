@@ -1020,7 +1020,7 @@ with st.expander("📚 Sumber data, metodologi, dan keterbatasan"):
 | Batas wilayah | Shapefile lapakgis.com | 2022 | Provinsi, kab/kota |
 
 Data utama (bencana provinsi dan korpus teks) bersumber dari **BPS**; data satelit, kejadian kab/kota, dan batas wilayah adalah data pendukung non-BPS.
-Tabel BPS: [{URL_BENCANA}]({URL_BENCANA}). Diakses: {TGL_AKSES}.
+Tabel BPS: [{SUMBER_BENCANA}]({URL_BENCANA}). Diakses: {TGL_AKSES}.
 Kode pengambilan data satelit: [Google Earth Engine](https://code.earthengine.google.com/528b8282640005200e31925a9a128dba).
 Kode wilayah BPS (`kode_kabkota`) menjadi kunci penggabungan atribut dengan batas wilayah.
 
@@ -1044,7 +1044,7 @@ Kode wilayah BPS (`kode_kabkota`) menjadi kunci penggabungan atribut dengan bata
 **Alat bantu AI.** Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web dan kode aplikasi. Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
 
 ### Keterbatasan
-- **Waktu**: data provinsi hanya satu tahun ({TAHUN}), jadi pola musiman dan antartahun tidak terlihat. Data 2026 masih parsial.
+- **Waktu**: data provinsi hanya satu tahun ({TAHUN}), jadi pola musiman dan antartahun tidak terlihat.
 - **Agregasi**: rata-rata per provinsi menyembunyikan variasi antar-kabupaten dan antar-tutupan lahan.
 - **Data satelit**: ekstraksi memakai skala 5 km (agar GEE tidak kehabisan memori), sehingga provinsi kecil seperti DKI Jakarta dan DI Yogyakarta hanya diwakili sedikit piksel. Resolusi tiap sumber berbeda (500 m hingga ±11 km), dan tidak dilakukan penyaringan awan atau kualitas piksel (QA) sebelum dirata-ratakan.
 - **NBR dan RH**: NBR dirata-ratakan selama setahun sebagai penanda kondisi vegetasi dan kekeringan, bukan sebagai ukuran tingkat keparahan area terbakar (dNBR). RH dihitung dari suhu dan titik embun rata-rata bulanan sehingga hanya perkiraan, bukan pengukuran langsung.
