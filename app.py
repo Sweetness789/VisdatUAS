@@ -1036,23 +1036,28 @@ Kode wilayah BPS (`kode_kabkota`) menjadi kunci penggabungan atribut dengan bata
 - Korelasi memakai **Spearman** karena n = 38 dan distribusi miring. Heatmap diurutkan dengan klaster hierarkis (*average linkage*).
 - **Indeks Kondisi Rentan** (0–100) = rata-rata lima indikator ternormalisasi min–max (LST tinggi; hujan, RH, NBR, NDVI rendah), berbobot sama.
 - Teks: *case folding*, tokenisasi, penghapusan stopword Bahasa Indonesia, dan stemming. Topik memakai **LDA** (`random_state=42`).
-- Peta kab/kota: **choropleth memakai rasio** (kejadian per 1.000 km²), bukan angka absolut. Satu kelas khusus untuk wilayah tanpa kejadian, lalu **kuintil** untuk wilayah yang pernah terbakar. Batas kelas dihitung dari gabungan enam tahun agar warna antar-tahun sebanding. Lingkaran proporsional berukuran ∝ √jumlah kejadian. Klaster **LISA** dibaca dari kolom `lisa_klaster` pada GeoJSON (TODO: sebut alat dan bobot spasial yang dipakai).
+- Peta kab/kota: **choropleth memakai rasio** (kejadian per 1.000 km²), bukan angka absolut. Satu kelas khusus untuk wilayah tanpa kejadian, lalu **kuintil** untuk wilayah yang pernah terbakar. Batas kelas dihitung dari gabungan enam tahun agar warna antar-tahun sebanding. Lingkaran proporsional berukuran ∝ √jumlah kejadian. Luas wilayah dihitung pada proyeksi equal-area (EPSG:6933), bukan dari koordinat derajat.
+- **Klaster LISA (Moran lokal)** dihitung dengan PySAL (`esda`, `libpysal`) pada y = ln(1 + rasio) untuk menahan pengaruh rasio yang sangat miring dan banyak bernilai nol. Bobot spasial **K-nearest neighbors (k = 5)** dipakai karena banyak kab/kota kepulauan tidak punya tetangga yang berbatasan. Signifikansi diuji dengan **999 permutasi** (p simulasi, ambang p < 0,05). Kuadran High-High, Low-Low, High-Low, dan Low-High ditentukan dari tanda nilai terstandar dan lag spasialnya. LISA dihitung dari kejadian gabungan 2021–2026.
+- Pembersihan data kejadian BNPB: nama kolom diseragamkan, baris dengan kab/kota, tanggal, lokasi, dan penyebab yang sama ditandai sebagai dugaan duplikat (tidak dihapus), kode wilayah dicocokkan langsung ke batas wilayah, dan 24 baris Papua pemekaran dicocokkan lewat nama kab/kota dan provinsi. Kab/kota tanpa kejadian diberi nilai 0.
 - Geometri disederhanakan (Douglas-Peucker, ±550 m) dengan `scripts/prep_geojson.py` agar ringan di peramban.
 
 **Rancangan visual.** Palet Okabe-Ito untuk kategori dan skala luminans monoton (api/inferno) untuk nilai berurutan, sehingga aman bagi buta warna. Pada sunburst dan treemap, ukuran = jumlah kejadian dan warna = porsi karhutla. Interaksi: *brushing & linking*, *drill-down* dengan *breadcrumb*, filter periode, tooltip, zoom/pan, dan kontrol layer.
 
-**Alat bantu AI.** Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web dan kode aplikasi. Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
+**Alat bantu AI.** Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web, kode aplikasi, serta kode pengolahan data kejadian dan analisis spasial (rasio, klaster LISA). Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
 
 ### Keterbatasan
-- **Waktu**: data provinsi hanya satu tahun ({TAHUN}), jadi pola musiman dan antartahun tidak terlihat.
+- **Waktu**: data provinsi hanya satu tahun ({TAHUN}), jadi pola musiman dan antartahun tidak terlihat. Data 2026 masih parsial.
 - **Agregasi**: rata-rata per provinsi menyembunyikan variasi antar-kabupaten dan antar-tutupan lahan.
 - **Data satelit**: ekstraksi memakai skala 5 km (agar GEE tidak kehabisan memori), sehingga provinsi kecil seperti DKI Jakarta dan DI Yogyakarta hanya diwakili sedikit piksel. Resolusi tiap sumber berbeda (500 m hingga ±11 km), dan tidak dilakukan penyaringan awan atau kualitas piksel (QA) sebelum dirata-ratakan.
 - **NBR dan RH**: NBR dirata-ratakan selama setahun sebagai penanda kondisi vegetasi dan kekeringan, bukan sebagai ukuran tingkat keparahan area terbakar (dNBR). RH dihitung dari suhu dan titik embun rata-rata bulanan sehingga hanya perkiraan, bukan pengukuran langsung.
 - **Indeks Kondisi Rentan**: berbobot sama dan belum divalidasi terhadap titik panas atau kejadian aktual; sifatnya deskriptif, bukan prediktif.
 - **Statistik**: n = 38 membuat PCA dan korelasi bersifat eksploratif; korelasi bukan sebab-akibat.
 - **Kualitas data kejadian**: bergantung pada pelaporan daerah, dan definisi pencatatan BNPB berbeda dengan BPS.
-- **Peta kab/kota**: kota kecil mudah tampil ekstrem karena penyebut luas yang kecil; klaster LISA tidak mengikuti filter periode dan bergantung pada bobot spasial.
+- **Peta kab/kota**: kota kecil mudah tampil ekstrem karena penyebut luas yang kecil; klaster LISA tidak mengikuti filter periode.
 - **Batas wilayah**: shapefile non-resmi bisa berbeda dari batas dan kode BPS terbaru (mis. pemekaran Papua), dan penyederhanaan geometri mengurangi presisi garis batas.
+- **LISA**: 514 uji dilakukan sekaligus pada p < 0,05 tanpa koreksi uji berganda (Bonferroni/FDR), sehingga sebagian klaster bisa terjadi kebetulan. Bobot KNN (k = 5) dihitung dari titik dalam derajat, dan k belum diuji sensitivitasnya.
+- **Nilai kosong dan duplikat**: baris yang mirip bisa merupakan dua kejadian nyata sehingga hanya ditandai, bukan dihapus. Nilai kosong korban tidak diisi 0 pada tingkat kejadian, jadi angka 0 pada agregat bisa berarti "tidak dilaporkan".
+- **MAUP**: pola spasial dapat berubah bila skala analisis diganti (misalnya ke kecamatan).
 - **Teks**: korpus hanya judul dan abstrak; jumlah topik LDA ditentukan manual.
 """)
 
