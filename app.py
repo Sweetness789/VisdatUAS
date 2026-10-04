@@ -173,7 +173,6 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
 .chapter {margin:3.2rem 0 .6rem; padding-left:1rem; border-left:4px solid #ff6b1a; animation:fadeUp .8s ease both;}
 .chap-num {font-size:.78rem; letter-spacing:.3em; color:#ff9f1c;}
 .chapter h2 {font-size:clamp(2rem,5vw,3.2rem); margin:.1rem 0; color:#fff4e0;}
-.chapter h2 img {height:1.1em; vertical-align:-.15em; margin-right:.3rem;}
 .chap-kicker {color:#d9c7b3; max-width:820px; margin:.2rem 0 0;}
 .story {background:linear-gradient(135deg,rgba(255,107,26,.10),rgba(255,107,26,.02)); border:1px solid rgba(255,140,60,.22);
   border-radius:16px; padding:.9rem 1.1rem; margin:.8rem 0; color:#f0e2d0; line-height:1.65;}
@@ -186,7 +185,7 @@ div[data-testid="stPlotlyChart"] {background:rgba(255,255,255,.015); border:1px 
 .st-key-wc {background:rgba(255,255,255,.015); border:1px solid rgba(255,140,60,.12); border-radius:16px; padding:.5rem .8rem; height:452px; overflow:hidden;}
 .st-key-wc img {height:352px !important; width:100% !important; object-fit:contain;}
 .wc-title {font-size:16px; font-weight:400; color:#f3e9dc; margin:.2rem 0 .5rem; display:flex; justify-content:space-between; align-items:center;}
-.st-key-panel3 {background:linear-gradient(135deg,rgba(255,107,26,.07),rgba(255,107,26,.015));}
+.st-key-panel3, .st-key-panel4, .st-key-panel5 {background:linear-gradient(135deg,rgba(255,107,26,.07),rgba(255,107,26,.015));}
 .footer {margin-top:3rem; padding:1.2rem; border-top:1px solid rgba(255,140,60,.25); color:#bba998; font-size:.85rem;}
 
 @media (max-width:640px){ .hero{padding:3rem 1rem 7rem;} .kpi{min-width:42%;} .flames{height:120px;} }
@@ -218,7 +217,7 @@ def html(s: str):
 
 def bab(no: int, judul: str, kicker: str, nama_ikon: str):
     html(f"""<div class="chapter" id="bab-{no}"><div class="chap-num">BAB {no}</div>
-    <h2>{ikon(nama_ikon)} {judul}</h2><p class="chap-kicker">{kicker}</p></div>""")
+    <h2>{judul}</h2><p class="chap-kicker">{kicker}</p></div>""")
 
 
 def cerita(teks: str):
@@ -821,36 +820,49 @@ else:
 # 8. BAB 4 - PROVINSI SIAGA (KESIMPULAN)
 # =============================================================================
 bab(4, "PROVINSI SIAGA",
-    "Indeks Kondisi Rentan (0-100) diformulasikan dari lima sinyal bahaya satelit: suhu permukaan (LST) yang memanas, "
-    "serta anjloknya curah hujan, kelembapan, NBR, dan NDVI. Mari kita benturkan potensi di atas kertas ini dengan "
-    "realitas kobaran api yang benar-benar tercatat di lapangan.", "siaga")
+    "Indeks Kondisi Rentan (0-100) menggabungkan lima pantauan satelit: suhu panas, minimnya hujan, udara kering, "
+    "serta vegetasi yang mengering. Sekarang, mari kita buktikan: apakah prediksi kerentanan ini benar-benar terbukti "
+    "dengan munculnya titik api di lapangan?", "siaga")
 
-ex = st.checkbox("Kecualikan DKI Jakarta (suhu tinggi karena wilayah perkotaan, bukan lahan vegetasi)", value=True)
+with st.container(border=True, key="panel4"):
+    ex = st.toggle("Kecualikan DKI Jakarta (suhu tinggi karena wilayah perkotaan, bukan lahan vegetasi)", value=True)
 dd = df[df.prov != "DKI Jakarta"] if ex else df
-b1, b2 = st.columns([1, 1.2])
+TINGGI4 = 500
+b1, b2 = st.columns(2)
 with b1:
     top = dd.sort_values("indeks", ascending=False).head(10).iloc[::-1]
     fr = go.Figure(go.Bar(x=top.indeks, y=top.prov, orientation="h",
                           marker=dict(color=top.indeks, colorscale=FIRE_SCALE, cmin=0, cmax=100),
-                          text=top.indeks.round(0).astype(int), textposition="outside",
+                          text=top.indeks.round(0).astype(int), textposition="outside", cliponaxis=False,
                           customdata=top.karhutla, hovertemplate="<b>%{y}</b><br>Indeks: %{x:.1f}<br>Karhutla: %{customdata} kejadian<extra></extra>"))
-    fr.update_xaxes(range=[0, 105], title="Indeks kondisi rentan", gridcolor="rgba(255,255,255,.06)")
-    finish(fr, "10 provinsi dengan kondisi paling rentan", 480, "indeks = rata-rata 5 indikator ternormalisasi", -0.14, legend=False)
+    fr.update_xaxes(range=[0, 108], title="Indeks kondisi rentan", gridcolor="rgba(255,255,255,.06)")
+    fr.update_yaxes(automargin=True)
+    finish(fr, "10 provinsi dengan kondisi paling rentan", TINGGI4, "indeks = rata-rata 5 indikator ternormalisasi", -0.2, legend=False)
+    fr.update_layout(margin=dict(l=10, r=20, t=56, b=84))
     st.plotly_chart(fr, key="rank", **STRETCH)
 with b2:
     mx, my = dd.indeks.median(), dd.karhutla.median()
+    lab_idx = list(dd.nlargest(5, "karhutla").index)
+    lab_idx += [i for i in dd.nlargest(3, "indeks").index if i not in lab_idx]
+    siklus = ["top center", "bottom center", "middle right", "middle left"]
+    pos_map = {ix: siklus[r % 4] for r, ix in enumerate(lab_idx)}
+    ymax = float(dd.karhutla.max())
     fq = go.Figure(go.Scatter(
-        x=dd.indeks, y=dd.karhutla, mode="markers+text", text=np.where((dd.karhutla >= 75) | (dd.indeks >= 52), dd.prov, ""),
-        textposition="top center", textfont=dict(size=10),
-        marker=dict(size=12, color=np.where(dd.kalimantan, API, NETRAL), line=dict(width=1, color="#140d0d")),
+        x=dd.indeks, y=dd.karhutla, mode="markers+text", text=[p if ix in pos_map else "" for ix, p in zip(dd.index, dd.prov)],
+        textposition=[pos_map.get(ix, "top center") for ix in dd.index], textfont=dict(size=10, color="#f3e9dc"), cliponaxis=False,
+        marker=dict(size=11, color=np.where(dd.kalimantan, API, NETRAL), line=dict(width=1, color="#140d0d"), opacity=0.9),
         customdata=dd.prov, hovertemplate="<b>%{customdata}</b><br>Indeks: %{x:.1f}<br>Karhutla: %{y}<extra></extra>"))
     fq.add_vline(x=mx, line_dash="dot", line_color="rgba(255,255,255,.35)")
     fq.add_hline(y=my, line_dash="dot", line_color="rgba(255,255,255,.35)")
-    fq.add_annotation(x=dd.indeks.max(), y=dd.karhutla.max(), text="SIAGA: rentan & sering terbakar", showarrow=False, xanchor="right", font=dict(color="#ffb347", size=11))
-    fq.add_annotation(x=dd.indeks.max(), y=0, text="WASPADA: rentan, belum banyak tercatat", showarrow=False, xanchor="right", yanchor="bottom", font=dict(color="#9fd7f5", size=11))
-    fq.update_xaxes(title="Indeks kondisi rentan (satelit)", gridcolor="rgba(255,255,255,.05)")
-    fq.update_yaxes(title="Kejadian Karhutla tercatat", gridcolor="rgba(255,255,255,.05)")
-    finish(fq, "Potensi vs kejadian", 480, "garis putus-putus = median; oranye = Kalimantan", -0.17, legend=False)
+    fq.add_annotation(xref="paper", yref="paper", x=0.99, y=0.99, text="SIAGA: rentan dan sering terbakar", showarrow=False,
+                      xanchor="right", yanchor="top", font=dict(color="#ffb347", size=11))
+    fq.add_annotation(xref="paper", yref="paper", x=0.99, y=0.01, text="WASPADA: rentan, belum banyak tercatat", showarrow=False,
+                      xanchor="right", yanchor="bottom", font=dict(color="#9fd7f5", size=11))
+    fq.update_xaxes(title="Indeks kondisi rentan (satelit)", gridcolor="rgba(255,255,255,.05)",
+                    range=[dd.indeks.min() - 4, dd.indeks.max() + 8])
+    fq.update_yaxes(title="Kejadian Karhutla tercatat", gridcolor="rgba(255,255,255,.05)", range=[-ymax * 0.06, ymax * 1.18])
+    finish(fq, "Potensi vs kejadian", TINGGI4, "garis putus-putus = median; oranye = Kalimantan", -0.2, legend=False)
+    fq.update_layout(margin=dict(l=10, r=20, t=56, b=84))
     st.plotly_chart(fq, key="quad", **STRETCH)
 
 waspada = dd[(dd.indeks >= mx) & (dd.karhutla <= my)].sort_values("indeks", ascending=False).head(3).prov.tolist()
@@ -907,16 +919,17 @@ def legenda_html(dasar: str, labels: list[str], tampil_lingkaran: bool) -> str:
 @st.fragment
 def peta_kabkota():
     """Seluruh kontrol Bab 5 ada di dalam fragment: mengubah filter hanya me-render ulang bagian ini."""
-    r1a, r1b = st.columns([1.5, 1])
-    with r1a:
-        per_lab = st.select_slider("Periode kejadian", options=list(PERIODE), value="2021–2026", key="geo_per")
-    with r1b:
-        fokus = st.selectbox("Fokus wilayah (zoom otomatis)", ["Seluruh Indonesia"] + sorted(PBOX), key="geo_fokus")
-    r2a, r2b = st.columns([1.5, 1])
-    with r2a:
-        dasar = st.radio("Layer dasar", ["Kepadatan kejadian", "Klaster LISA"], horizontal=True, key="geo_dasar")
-    with r2b:
-        lingkaran = st.checkbox("Layer lingkaran proporsional (jumlah kejadian)", value=True, key="geo_bubble")
+    LB = [1.4, 1.1, 1.1]
+    with st.container(border=True, key="panel5"):
+        st.markdown("**Saring data**")
+        r1a, r1b, r1c = st.columns(LB, vertical_alignment="bottom")
+        per_lab = r1a.select_slider("Periode kejadian", options=list(PERIODE), value="2021–2026", key="geo_per")
+        fokus = r1b.selectbox("Fokus wilayah (zoom otomatis)", ["Seluruh Indonesia"] + sorted(PBOX), key="geo_fokus")
+        urut = r1c.radio("Peringkat berdasarkan", ["Kepadatan", "Jumlah kejadian"], horizontal=True, key="geo_urut")
+        st.markdown("**Atur tampilan peta**")
+        r2a, r2b, _ = st.columns(LB, vertical_alignment="bottom")
+        dasar = r2a.radio("Layer dasar", ["Kepadatan kejadian", "Klaster LISA"], horizontal=True, key="geo_dasar")
+        lingkaran = r2b.toggle("Lingkaran proporsional (jumlah kejadian)", value=True, key="geo_bubble")
 
     p = PERIODE[per_lab]
     d = gdf.copy()
@@ -965,7 +978,6 @@ def peta_kabkota():
 
     # ---------- peringkat ----------
     with cr:
-        urut = st.radio("Peringkat berdasarkan", ["Kepadatan per 1.000 km²", "Jumlah kejadian"], horizontal=True, key="geo_urut")
         kol = "rate" if urut.startswith("Kepadatan") else "n"
         top = scope[scope[kol] > 0].nlargest(10, kol).iloc[::-1]
         if top.empty:
@@ -1033,12 +1045,15 @@ cerita(
     f"Secara spasial, <b>{len(hh)}</b> kab/kota membentuk hotspot (High-High), terbanyak di {hh_prov.index[0]} ({hh_prov.iloc[0]}) "
     f"dan {hh_prov.index[1]} ({hh_prov.iloc[1]}): api tidak menyebar acak, ia mengelompok."
 )
+_n3 = list(top3.kabkota)
+_daftar3 = ", ".join(_n3[:-1]) + " dan " + _n3[-1]
 cerita(
-    f"<b>Hati-hati membaca angka per luas.</b> Tiga kab/kota dengan kepadatan tertinggi ({', '.join(top3.kabkota)}) luasnya "
-    f"tidak lebih dari {top3.luas_km2.max():,.0f} km²: beberapa kejadian saja sudah menaikkan angka per km². Sebaliknya, jumlah kejadian terbanyak ada di "
-    f"<b>{tc.kabkota}</b> ({tc.provinsi}, {int(tc.n_kejadian)} kejadian). Karena itu choropleth (rasio) selalu dibaca bersama lingkaran "
-    f"proporsional (angka absolut) dan klaster LISA, bukan sendirian. Karena api mengelompok lintas kab/kota "
-    f"dan sangat bervariasi di dalam satu provinsi, pemantauan Karhutla layak turun ke tingkat kab/kota, tidak berhenti di provinsi."
+    f"<b>Namun, kita harus jeli membaca angka kepadatan ini.</b> {_daftar3} terlihat paling rawan hanya karena luas wilayahnya "
+    f"sempit (di bawah {top3.luas_km2.max():,.0f} km²). Sebaliknya, rekor jumlah kejadian terbanyak dipegang oleh "
+    f"<b>{tc.kabkota}</b> ({int(tc.n_kejadian)} kejadian). Karena ada \"jebakan\" wilayah sempit ini, warna peta (rasio) harus "
+    f"selalu disandingkan dengan besarnya lingkaran (angka pasti) dan zona klasternya. Pada akhirnya, data ini membuktikan bahwa "
+    f"api tidak peduli pada batas administrasi provinsi. Untuk penanganan yang tepat sasaran, pemantauan Karhutla harus dibedah "
+    f"langsung ke level kabupaten dan kota."
 )
 
 
