@@ -1,16 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-TITIK API NUSANTARA - Web story deteksi potensi Karhutla per provinsi (2025)
-UAS Visualisasi Data dan Informasi 2026 - Politeknik Statistika STIS
-
-Topik visualisasi:
-  (a) Data berdimensi tinggi : PCA + radar chart + clustered heatmap (brushing & linking)
-  (c) Data berhierarki       : sunburst + treemap (drill-down + breadcrumb)
-  (d) Data teks              : word cloud + jaringan ko-okurensi + tren topik (LDA)
-  (e) Data geospasial        : choropleth + lingkaran proporsional + klaster LISA (514 kab/kota)
-
-Susunan halaman: satu halaman panjang; menu tetap di atas (topnav) melompat ke tiap bagian.
-"""
 import base64
 import html as _html
 import itertools
@@ -33,40 +21,37 @@ from wordcloud import WordCloud
 from geo_utils import (YEARS, YEAR_PARSIAL, KELAS_WARNA, LISA_URUT, LISA_WARNA, LISA_ARTI, NASIONAL_PUSAT, NASIONAL_ZOOM,
                        load_geo, class_breaks, classify, class_labels, count_col, rate_col, fit_view)
 
-# =============================================================================
-# 0. KONFIGURASI  (EDIT BAGIAN INI)
-# =============================================================================
+
 BASE = Path(__file__).parent
 DATA_PROV = BASE / "data" / "Data_Provinsi_2025.xlsx"
 DATA_TEKS = BASE / "data" / "Korpus.xlsx"
-DATA_GEO = BASE / "data" / "kabkota_karhutla.geojson"     # hasil scripts/prep_geojson.py (geometri disederhanakan)
+DATA_GEO = BASE / "data" / "kabkota_karhutla.geojson"
 ICON_DIR = BASE / "assets" / "icons"
 
 TAHUN = 2025
 JUDUL = "TITIK API NUSANTARA"
 SUBJUDUL = "Api tidak menyala tanpa jejak."
 
-# TODO: isi sesuai sumber aslimu. Teks ini muncul di footer dan pada anotasi grafik.
-SUMBER_BENCANA = "BPS - Statistik Bencana per Provinsi 2025"            # TODO: judul tabel BPS persisnya
-URL_BENCANA = "https://www.bps.go.id/"                                   # TODO: URL tabel
-SUMBER_SATELIT = "citra satelit (NDVI, LST, NBR, curah hujan, RH)"       # TODO: mis. MODIS / CHIRPS / ERA5 via GEE
-SUMBER_TEKS = "BPS - judul dan abstrak publikasi (korpus 193 dokumen)"   # TODO: URL / metode pengambilan
-SUMBER_GEO = "kejadian Karhutla per kab/kota 2021-2026 + batas wilayah"   # TODO: sebut sumber kejadian & batas wilayah persisnya
-TGL_AKSES = "........ 2026"                                              # TODO: tanggal akses data
-URL_REPO = "https://github.com/USERNAME/REPO"                            # TODO: URL repositori publik
 
-# --- IKON: taruh file di assets/icons/<nama>.png (atau .svg/.webp). Kalau file tidak ada,
-#     otomatis dipakai emoji di bawah. Nama file = kunci di dict ini. ---
+SUMBER_BENCANA = "BPS - Jumlah Bencana Alam Menurut Provinsi dan Jenis Bencana Alam (Kejadian), 2025"
+URL_BENCANA = "https://www.bps.go.id/id/statistics-table/3/TUZaMGVteFVjSEJ4T1RCMlIyRjRTazVvVDJocVFUMDkjMw==/jumlah-bencana-alam-menurut-provinsi-dan-jenis-bencana-alam--kejadian---2024.html?year=2025"
+SUMBER_SATELIT = "Google Earth Engine: MODIS MOD13A1, MOD11A2, MOD09A1; CHIRPS Daily; ERA5-Land Monthly"
+SUMBER_TEKS = "BPS - judul dan abstrak publikasi (korpus 193 dokumen)"
+SUMBER_GEO = "BNPB, kejadian karhutla per kab/kota 2021-2026 (gis.bnpb.go.id); batas wilayah: shapefile lapakgis.com"
+TGL_AKSES = "3 Oktober 2026"
+URL_REPO = "https://github.com/Sweetness789/VisdatUAS"
+
+
 IKON = {
-    "api": "🔥",        # assets/icons/api.png        -> logo di hero
-    "satelit": "🛰️",    # assets/icons/satelit.png    -> Bab 1
-    "hutan": "🌲",      # assets/icons/hutan.png      -> Bab 2
-    "teks": "📰",       # assets/icons/teks.png       -> Bab 3
-    "siaga": "🚨",      # assets/icons/siaga.png      -> Bab 4
-    "peta": "🗺️",       # assets/icons/peta.png       -> Bab 5
+    "api": "🔥",
+    "satelit": "🛰️",
+    "hutan": "🌲",
+    "teks": "📰",
+    "siaga": "🚨",
+    "peta": "🗺️",
 }
 
-# Menu atas: (id bagian, label menu, keterangan saat kursor di atas menu)
+
 MENU = [
     ("beranda", "Beranda", "Kembali ke awal cerita"),
     ("bab-1", "Multivariat", "Bab 1 · Visualisasi data berdimensi tinggi (PCA, radar, heatmap)"),
@@ -76,23 +61,20 @@ MENU = [
     ("bab-5", "Geospasial", "Bab 5 · Visualisasi data geospasial kab/kota (choropleth, simbol proporsional, LISA)"),
 ]
 
-# Palet ramah buta warna (Okabe-Ito)
+
 OKABE = ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
-API = "#D55E00"       # vermilion: warna sorotan Kalimantan
-NETRAL = "#56B4E9"    # biru langit: provinsi lain
-FIRE_SCALE = ["#ffe9a8", "#ffb347", "#ff6b1a", "#c1121f", "#5c0a0a"]  # luminans monoton
+API = "#D55E00"
+NETRAL = "#56B4E9"
+FIRE_SCALE = ["#ffe9a8", "#ffb347", "#ff6b1a", "#c1121f", "#5c0a0a"]
 DIVERGING = [[0, "#2166ac"], [0.25, "#92c5de"], [0.5, "#f7f7f7"], [0.75, "#f4a582"], [1, "#b2182b"]]
 
 st.set_page_config(page_title=f"{JUDUL} | Karhutla {TAHUN}", page_icon="🔥",
                    layout="wide", initial_sidebar_state="collapsed")
 
-# Kompatibilitas parameter lebar antar-versi Streamlit
+
 STRETCH = {"width": "stretch"}
 
 
-# =============================================================================
-# 1. CSS + ANIMASI API
-# =============================================================================
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
@@ -105,7 +87,6 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
   radial-gradient(1200px 500px at 50% -10%, rgba(255,107,26,.16), transparent 60%),
   linear-gradient(180deg,#0e0909 0%,#140c0c 60%,#0e0909 100%);}
 
-/* ---------- MENU ATAS (tetap di layar, melompat ke bagian) ---------- */
 .topnav {position:fixed; top:0; left:0; right:0; z-index:999990; display:flex; align-items:center; gap:1rem;
   padding:.5rem max(.8rem, calc((100vw - 1180px) / 2)); background:rgba(14,9,9,.9); backdrop-filter:blur(10px);
   border-bottom:1px solid rgba(255,140,60,.28);}
@@ -121,14 +102,12 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
 #beranda, .chapter {scroll-margin-top:76px;}
 @media (max-width:640px){ .topnav .brand {display:none;} .topnav {padding:.45rem .6rem;} .topnav .menu {justify-content:flex-start;} }
 
-/* ---------- LEGENDA PETA ---------- */
 .maplegend {display:flex; flex-wrap:wrap; align-items:center; gap:.3rem 1rem; margin:.2rem 0 .4rem; font-size:.8rem; color:#e9d8c4;}
 .maplegend b {color:#ffb347; font-weight:600;}
 .maplegend .lg {display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap;}
 .maplegend .lg i {display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.25);}
 .maplegend .lg em {display:inline-block; border-radius:50%; background:rgba(86,180,233,.6); border:1px solid rgba(255,255,255,.45);}
 
-/* ---------- HERO ---------- */
 .hero {position:relative; overflow:hidden; border-radius:26px; padding:4.2rem 1.6rem 8.5rem;
   background:radial-gradient(900px 380px at 50% 100%, rgba(255,90,0,.55), rgba(120,20,0,.25) 55%, rgba(14,9,9,.0) 80%),
              linear-gradient(180deg,#1a0b0b,#0e0909);
@@ -153,7 +132,6 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
   border:1px solid rgba(255,179,71,.35); transition:.25s;}
 .nav a:hover {background:rgba(255,107,26,.25); transform:translateY(-2px);}
 
-/* nyala api */
 .flames {position:absolute; left:0; right:0; bottom:-14px; height:170px; display:flex; justify-content:space-around; align-items:flex-end;
   z-index:2; filter:blur(7px) saturate(1.3); mix-blend-mode:screen; pointer-events:none;}
 .flame {background:linear-gradient(to top,#ff3d00 0%,#ff8c00 45%,#ffd23f 75%,rgba(255,210,63,0) 100%);
@@ -169,7 +147,6 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
 @keyframes fadeUp {from{opacity:0; transform:translateY(22px);} to{opacity:1; transform:none;}}
 @keyframes bob {0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)}}
 
-/* ---------- BAB ---------- */
 .chapter {margin:3.2rem 0 .6rem; padding-left:1rem; border-left:4px solid #ff6b1a; animation:fadeUp .8s ease both;}
 .chap-num {font-size:.78rem; letter-spacing:.3em; color:#ff9f1c;}
 .chapter h2 {font-size:clamp(2rem,5vw,3.2rem); margin:.1rem 0; color:#fff4e0;}
@@ -195,11 +172,7 @@ div[data-testid="stPlotlyChart"] {background:rgba(255,255,255,.015); border:1px 
 st.markdown(CSS, unsafe_allow_html=True)
 
 
-# =============================================================================
-# 2. HELPER UMUM
-# =============================================================================
 def ikon(nama: str, ukuran: int | None = None) -> str:
-    """Kembalikan <img> jika assets/icons/<nama>.(png|svg|webp|jpg) ada, selain itu emoji."""
     for ext in ("png", "svg", "webp", "jpg", "jpeg"):
         f = ICON_DIR / f"{nama}.{ext}"
         if f.exists():
@@ -211,7 +184,6 @@ def ikon(nama: str, ukuran: int | None = None) -> str:
 
 
 def html(s: str):
-    """Render HTML satu-baris (hindari blok kode markdown akibat indentasi)."""
     st.markdown(" ".join(line.strip() for line in s.splitlines()), unsafe_allow_html=True)
 
 
@@ -245,9 +217,6 @@ def minmax(s: pd.Series) -> pd.Series:
     return (s - s.min()) / r if r else s * 0
 
 
-# =============================================================================
-# 3. DATA
-# =============================================================================
 PULAU = {
     "Aceh": "Sumatera", "Sumatera Utara": "Sumatera", "Sumatera Barat": "Sumatera", "Riau": "Sumatera",
     "Jambi": "Sumatera", "Sumatera Selatan": "Sumatera", "Bengkulu": "Sumatera", "Lampung": "Sumatera",
@@ -280,8 +249,8 @@ def load_prov() -> pd.DataFrame:
     d = pd.read_excel(DATA_PROV).rename(columns=RENAME)
     d["pulau"] = d["prov"].map(PULAU).fillna("Lainnya")
     d["kalimantan"] = d["pulau"].eq("Kalimantan")
-    # Indeks Kondisi Rentan (0-100): rata-rata lima indikator "kekeringan" ternormalisasi min-max
-    #   LST tinggi, curah hujan rendah, RH rendah, NBR rendah, NDVI rendah (bobot sama)
+
+
     comp = pd.concat([minmax(d.lst), 1 - minmax(d.hujan), 1 - minmax(d.rh), 1 - minmax(d.nbr), 1 - minmax(d.ndvi)], axis=1)
     d["indeks"] = comp.mean(axis=1) * 100
     return d
@@ -300,24 +269,18 @@ def load_teks() -> pd.DataFrame:
 @st.cache_data
 def pca_fit(df: pd.DataFrame):
     X = df[NUM].astype(float).copy()
-    for c in BENCANA:                       # skala hitung -> log1p agar pencilan tidak mendominasi
+    for c in BENCANA:
         X[c] = np.log1p(X[c])
     Z = StandardScaler().fit_transform(X)
     p = PCA(n_components=2, random_state=0).fit(Z)
     sc = p.transform(Z)
-    return sc, p.explained_variance_ratio_, p.components_.T   # skor, varians, loading (10 x 2)
+    return sc, p.explained_variance_ratio_, p.components_.T
 
 
 df = load_prov()
 corpus = load_teks()
 
 
-# =============================================================================
-# 4. MENU ATAS + HERO
-# =============================================================================
-# Skrip kecil: klik menu -> gulir mulus ke bagian itu; menu yang sedang dibaca ditandai (scroll-spy).
-# Dipasang lewat st.html(unsafe_allow_javascript=True). Jika versi Streamlit lama tidak mendukung,
-# menu tetap berfungsi lewat tautan jangkar (href="#bab-N") + CSS scroll-behavior.
 NAV_JS = """
 <script>
 (function () {
@@ -326,7 +289,7 @@ NAV_JS = """
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var last = null;
 
-  function section(id) {            // cadangan jika atribut id disaring oleh renderer markdown
+  function section(id) {
     var el = document.getElementById(id);
     if (el) return el;
     if (id === 'beranda') return document.querySelector('.hero');
@@ -426,9 +389,6 @@ topnav()
 hero()
 
 
-# =============================================================================
-# 5. BAB 1 - DATA BERDIMENSI TINGGI (PCA + RADAR + HEATMAP, brushing & linking)
-# =============================================================================
 bab(1, "PETA KERENTANAN",
     "Mengekstraksi sepuluh variabel, lima indikator satelit dan lima jenis bencana, ke dalam dua dimensi utama. "
     "Jarak antarprovinsi pada peta ini menyingkap kemiripan profil ekologi dan kerentanannya. "
@@ -441,7 +401,7 @@ if "reset" not in st.session_state:
 scores, evr, load = pca_fit(df)
 df["pc1"], df["pc2"] = scores[:, 0], scores[:, 1]
 
-# Baris kontrol: kiri = pengaturan PCA, kanan = pemilihan provinsi untuk radar
+
 ctl_l, ctl_r = st.columns([1.1, 1])
 with ctl_l:
     k1, k2 = st.columns([1.5, 1])
@@ -468,7 +428,7 @@ with col_a:
     ukuran = 8 + np.sqrt(df.karhutla) * 1.5
     teratas = list(df.nlargest(6, "karhutla").index)
     posisi = ["top center"] * len(df)
-    for r, i in enumerate(teratas):                       # selang-seling agar label tidak bertabrakan
+    for r, i in enumerate(teratas):
         posisi[i] = ["top center", "bottom center", "middle right", "middle left", "top center", "bottom center"][r]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -509,7 +469,7 @@ except Exception:
 picked |= set(df.index[df.prov.isin(manual)])
 sel = df.loc[sorted(picked)] if picked else df.iloc[0:0]
 
-# ---------- RADAR ----------
+
 with col_b:
     RADAR_WARNA = [API, "#F0E442", "#009E73", "#CC79A7", "#56B4E9", "#0072B2"]
     RADAR = [("lst", "LST<br>tinggi", False), ("ndvi", "NDVI<br>terbalik", True), ("hujan", "Hujan<br>rendah", True),
@@ -523,7 +483,7 @@ with col_b:
     figr.add_trace(go.Scatterpolar(r=list(nasional) + [nasional.iloc[0]], theta=labels + [labels[0]], name="Rata-rata nasional",
                                    line=dict(color="#f3e9dc", dash="dash", width=2), fill="toself", fillcolor="rgba(243,233,220,.08)",
                                    hovertemplate="%{theta}: %{r:.2f}<extra>Nasional</extra>"))
-    if len(fokus) <= 6:      # perbandingan per provinsi: garis saja agar tidak saling menimpa
+    if len(fokus) <= 6:
         for i, (ix, rw) in enumerate(fokus.iterrows()):
             vals = rn.loc[ix]
             figr.add_trace(go.Scatterpolar(r=list(vals) + [vals.iloc[0]], theta=labels + [labels[0]], name=rw.prov,
@@ -545,7 +505,7 @@ with col_b:
                        legend=dict(orientation="h", x=0.5, xanchor="center", y=0.1, yanchor="top", bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(figr, key="radar", **STRETCH)
 
-# ---------- HEATMAP BERKLASTER ----------
+
 def order(M: np.ndarray) -> list[int]:
     return list(leaves_list(linkage(M, "average"))) if len(M) > 2 else list(range(len(M)))
 
@@ -565,7 +525,7 @@ st.plotly_chart(fh, key="heat", **STRETCH)
 if 0 < len(sel) < 5:
     st.caption("Pilih minimal 5 provinsi agar korelasi dihitung ulang untuk subset; kurang dari itu heatmap tetap menampilkan seluruh provinsi.")
 
-# ---------- Narasi dinamis ----------
+
 rho = df[NUM].corr(method="spearman")["karhutla"].drop("karhutla")
 kuat = rho.abs().sort_values(ascending=False).index[0]
 kal = df[df.kalimantan]
@@ -580,9 +540,6 @@ cerita(
 )
 
 
-# =============================================================================
-# 6. BAB 2 - DATA BERHIERARKI (SUNBURST + TREEMAP, drill-down + breadcrumb)
-# =============================================================================
 bab(2, "ANATOMI BENCANA",
     "Membedah anatomi bencana lapis demi lapis: dari skala nasional, mengerucut ke pulau, provinsi, hingga jenis insidennya. "
     "Luas bidang merepresentasikan frekuensi kejadian, sementara intensitas warna merah menyingkap persentase Karhutla.", "hutan")
@@ -613,7 +570,7 @@ if "path" not in st.session_state:
     st.session_state.path = []
 path = st.session_state.path
 
-# --- breadcrumb ---
+
 crumbs = ["Indonesia"] + path
 with st.container(horizontal=True, gap="small", key="crumbbar"):
     for i, nm in enumerate(crumbs):
@@ -621,7 +578,7 @@ with st.container(horizontal=True, gap="small", key="crumbbar"):
             st.session_state.path = path[:i]
             st.rerun()
 
-# --- pilihan anak (drill-down) ---
+
 if len(path) == 0:
     anak = sorted(df.pulau.unique())
 elif len(path) == 1:
@@ -680,9 +637,6 @@ cerita(
 )
 
 
-# =============================================================================
-# 7. BAB 3 - DATA TEKS (WORD CLOUD + KO-OKURENSI + TREN TOPIK)
-# =============================================================================
 bab(3, "MENGUNGKAP NARASI BPS",
     f"Di balik deretan angka statistik, ada narasi yang tersembunyi. Kami mengekstraksi {len(corpus)} abstrak dan judul publikasi BPS "
     "terkait krisis lingkungan dan kebencanaan. Setelah teks disaring dan diproses secara algoritmik, sebuah pola terungkap. "
@@ -697,7 +651,7 @@ LEBAR = [1.3, 1.7, 1]
 TINGGI3 = 440
 tmin, tmax = int(corpus.tahun.min()), int(corpus.tahun.max())
 
-# ---------- Panel kontrol: baris 1 = saring dokumen, baris 2 = atur visual ----------
+
 with st.container(border=True, key="panel3"):
     st.markdown("**Saring dokumen**")
     f1, f2, f3 = st.columns(LEBAR, vertical_alignment="bottom")
@@ -730,7 +684,7 @@ if not cukup:
 else:
     t1, t2 = st.columns(2)
 
-    # ---------- Word cloud ----------
+
     with t1:
         freq = collections.Counter(w for d in tok for w in d)
         cmap = LinearSegmentedColormap.from_list("api", ["#ffd166", "#ff9f1c", "#ff5d1f", "#ff8a80"])
@@ -741,7 +695,7 @@ else:
             st.image(wc.to_array(), **STRETCH)
             st.caption(f"{SRC_TEKS}; ukuran kata = frekuensi")
 
-    # ---------- Ko-okurensi ----------
+
     with t2:
         nb = sorted(((p[1] if p[0] == fokus_kata else p[0], c) for p, c in pair.items() if fokus_kata in p), key=lambda x: -x[1])[:k_nb]
         nodes = [fokus_kata] + [n for n, _ in nb]
@@ -776,7 +730,7 @@ else:
             fg.update_layout(margin=dict(l=10, r=10, t=56, b=40))
             st.plotly_chart(fg, key="net", **STRETCH)
 
-    # ---------- Tren topik ----------
+
     @st.cache_data
     def lda_run(teks: tuple, k: int, stopw: tuple):
         cv = CountVectorizer(min_df=3, max_df=0.7, token_pattern=r"(?u)\b[a-z]{3,}\b", stop_words=list(stopw))
@@ -816,9 +770,6 @@ else:
     )
 
 
-# =============================================================================
-# 8. BAB 4 - PROVINSI SIAGA (KESIMPULAN)
-# =============================================================================
 bab(4, "PROVINSI SIAGA",
     "Indeks Kondisi Rentan (0-100) menggabungkan lima pantauan satelit: suhu panas, minimnya hujan, udara kering, "
     "serta vegetasi yang mengering. Sekarang, mari kita buktikan: apakah prediksi kerentanan ini benar-benar terbukti "
@@ -877,9 +828,6 @@ cerita(
 )
 
 
-# =============================================================================
-# 9. BAB 5 - DATA GEOSPASIAL (choropleth + lingkaran proporsional + klaster LISA)
-# =============================================================================
 bab(5, "PETA KAB/KOTA",
     "Membaca data provinsi ibarat melihat hutan dari kejauhan, detailnya sering kali kabur. Kini, kita turun langsung ke "
     "garis depan. Membedah 514 kabupaten dan kota untuk melacak titik nadir kebakaran: di mana api paling sesak membakar "
@@ -918,7 +866,6 @@ def legenda_html(dasar: str, labels: list[str], tampil_lingkaran: bool) -> str:
 
 @st.fragment
 def peta_kabkota():
-    """Seluruh kontrol Bab 5 ada di dalam fragment: mengubah filter hanya me-render ulang bagian ini."""
     LB = [1.4, 1.1, 1.1]
     with st.container(border=True, key="panel5"):
         st.markdown("**Saring data**")
@@ -940,7 +887,7 @@ def peta_kabkota():
     scope = d if fokus == "Seluruh Indonesia" else d[d.provinsi == fokus]
     ket_per = "2021–2026" if p == "all" else (f"{p}, data parsial" if p == YEAR_PARSIAL else str(p))
 
-    # ---------- peta ----------
+
     hover = [f"<b>{r.kabkota}</b> ({r.provinsi})<br>{int(r.n):,} kejadian, {ket_per}<br>"
              f"{r.rate:,.2f} kejadian per 1.000 km² (luas {r.luas_km2:,.0f} km²)<br>"
              f"LISA: {r.lisa_klaster} (I = {r.lisa_I:.2f}, p = {r.lisa_p:.3f})" for r in d.itertuples()]
@@ -976,7 +923,7 @@ def peta_kabkota():
                    "Arahkan kursor / ketuk wilayah untuk rincian."
                    + (" Klaster LISA bersifat tetap (tidak mengikuti filter periode)." if dasar == "Klaster LISA" else ""))
 
-    # ---------- peringkat ----------
+
     with cr:
         kol = "rate" if urut.startswith("Kepadatan") else "n"
         top = scope[scope[kol] > 0].nlargest(10, kol).iloc[::-1]
@@ -995,7 +942,7 @@ def peta_kabkota():
             fr.update_layout(margin=dict(l=10, r=10, t=52, b=70))
             st.plotly_chart(fr, key="geo_rank", **STRETCH)
 
-    # ---------- tren tahunan + komposisi LISA ----------
+
     t1, t2 = st.columns([1.3, 1])
     with t1:
         per_thn = [int(scope[f"kej_{y}"].sum()) for y in YEARS]
@@ -1026,7 +973,7 @@ def peta_kabkota():
 
 peta_kabkota()
 
-# ---------- narasi (dihitung dari seluruh data, tidak bergantung filter) ----------
+
 tot_g = int(gdf.n_kejadian.sum())
 thn_g = {y: int(gdf[f"kej_{y}"].sum()) for y in YEARS}
 pk_y = max(thn_g, key=thn_g.get)
@@ -1057,32 +1004,56 @@ cerita(
 )
 
 
-# =============================================================================
-# 10. FOOTER / SUMBER DATA
-# =============================================================================
 with st.expander("📚 Sumber data, metodologi, dan keterbatasan"):
     st.markdown(f"""
-**Sumber data**
-- Kejadian bencana per provinsi {TAHUN}: {SUMBER_BENCANA}. URL: {URL_BENCANA}. Diakses: {TGL_AKSES}.
-- Indikator satelit per provinsi (rata-rata): {SUMBER_SATELIT}.
-- Korpus teks: {SUMBER_TEKS}.
-- Peta kab/kota (Bab 5): {SUMBER_GEO}. Kode wilayah BPS (`kode_kabkota`) menjadi kunci gabungan atribut dengan batas wilayah. Diakses: {TGL_AKSES}.
+### Sumber data
+| Data | Sumber | Tahun | Level |
+|---|---|---|---|
+| Jumlah bencana (longsor, banjir, kekeringan, karhutla, cuaca ekstrem) | **BPS**: {SUMBER_BENCANA} | {TAHUN} | Provinsi (38) |
+| Judul dan abstrak publikasi (korpus teks) | **BPS**: judul dan abstrak publikasi BPS (193 dokumen) | 2001–2026 | Dokumen |
+| NDVI | Google Earth Engine, MODIS/061/MOD13A1 (500 m, 16 harian) | {TAHUN} | Piksel → rata-rata provinsi |
+| LST siang hari | Google Earth Engine, MODIS/061/MOD11A2 (1 km, 8 harian) | {TAHUN} | Piksel → rata-rata provinsi |
+| NBR | Google Earth Engine, MODIS/061/MOD09A1 (500 m, 8 harian) | {TAHUN} | Piksel → rata-rata provinsi |
+| Curah hujan | Google Earth Engine, UCSB-CHG/CHIRPS/DAILY (±5 km) | {TAHUN} | Piksel → rata-rata provinsi |
+| Kelembapan relatif (RH) | Google Earth Engine, ECMWF/ERA5_LAND/MONTHLY_AGGR (±11 km) | {TAHUN} | Piksel → rata-rata provinsi |
+| Kejadian karhutla per kab/kota | BNPB, GIS BNPB (gis.bnpb.go.id) | 2021–2026 (2026 parsial) | Kab/kota (514) |
+| Batas wilayah | Shapefile lapakgis.com | 2022 | Provinsi, kab/kota |
 
-**Pra-pemrosesan.** Jumlah kejadian bencana ditransformasi `log1p` sebelum PCA, lalu seluruh 10 variabel distandardisasi (z-score).
-Korelasi memakai Spearman karena n = 38 dan distribusi miring. Teks sudah melalui case folding, tokenisasi, penghapusan stopword Bahasa Indonesia, dan stemming;
-topic modeling memakai LDA (scikit-learn, `random_state=42`).
+Data utama (bencana provinsi dan korpus teks) bersumber dari **BPS**; data satelit, kejadian kab/kota, dan batas wilayah adalah data pendukung non-BPS.
+Tabel BPS: [{URL_BENCANA}]({URL_BENCANA}). Diakses: {TGL_AKSES}.
+Kode pengambilan data satelit: [Google Earth Engine](https://code.earthengine.google.com/528b8282640005200e31925a9a128dba).
+Kode wilayah BPS (`kode_kabkota`) menjadi kunci penggabungan atribut dengan batas wilayah.
 
-**Peta kab/kota.** Choropleth memakai rasio (kejadian per 1.000 km²), bukan angka absolut. Klasifikasi: satu kelas khusus untuk wilayah tanpa kejadian,
-lalu kuintil (lima kelas berisi sama banyak) dari wilayah yang pernah terbakar, sehingga warna tidak didominasi segelintir pencilan. Batas kelas untuk
-tiap tahun dihitung dari gabungan data enam tahun agar warna antar-tahun sebanding. Palet inferno (luminans monoton, aman buta warna). Lingkaran proporsional
-berukuran ∝ √jumlah kejadian. Klaster LISA dibaca dari kolom `lisa_klaster` pada berkas GeoJSON. Geometri disederhanakan (Douglas-Peucker, toleransi ±550 m)
-dengan `scripts/prep_geojson.py` agar ringan di browser.
+### Metodologi
+**Alat pengolahan**
+- **Excel**: pembersihan tabel BPS, penyeragaman nama provinsi, dan penggabungan dengan indikator satelit menjadi satu tabel (38 provinsi × 10 variabel).
+- **Google Earth Engine**: periode 1 Januari–31 Desember {TAHUN}. NDVI (dikali 0,0001), LST siang hari (dikali 0,02 lalu dikonversi dari Kelvin ke °C), dan NBR (dihitung dari pita 2 dan 7 MOD09A1 sebagai (NIR − SWIR) / (NIR + SWIR)) dirata-ratakan sepanjang tahun. Curah hujan CHIRPS dijumlahkan menjadi total tahunan (mm). RH dihitung dari suhu 2 m dan titik embun ERA5-Land dengan pendekatan Magnus-Tetens, lalu dirata-ratakan. Gambar gabungan diekstraksi ke batas provinsi memakai `reduceRegions` (reducer rata-rata, skala 5.000 m, `tileScale` 4) dan diekspor ke CSV.
+- **QGIS**: pemeriksaan geometri, penyamaan sistem koordinat (WGS84), perhitungan luas wilayah (km²), dan penggabungan atribut ke batas wilayah.
+- **Python** (pandas, scikit-learn, SciPy, NetworkX, Plotly, Streamlit): analisis statistik dan pembuatan visualisasi.
 
-**Keterbatasan.** Satu tahun data (2025) dan agregasi provinsi menyembunyikan variasi antar-kabupaten; Indeks Kondisi Rentan berbobot sama dan tidak divalidasi
-terhadap titik panas; korpus hanya memuat judul dan abstrak. Pada peta kab/kota, kota kecil mudah tampil ekstrem karena penyebut luas yang kecil, data 2026 masih parsial,
-dan klaster LISA tidak mengikuti filter periode.
+**Pra-pemrosesan dan analisis**
+- Jumlah kejadian bencana ditransformasi `log1p`, lalu 10 variabel distandardisasi (z-score) sebelum **PCA**.
+- Korelasi memakai **Spearman** karena n = 38 dan distribusi miring. Heatmap diurutkan dengan klaster hierarkis (*average linkage*).
+- **Indeks Kondisi Rentan** (0–100) = rata-rata lima indikator ternormalisasi min–max (LST tinggi; hujan, RH, NBR, NDVI rendah), berbobot sama.
+- Teks: *case folding*, tokenisasi, penghapusan stopword Bahasa Indonesia, dan stemming. Topik memakai **LDA** (`random_state=42`).
+- Peta kab/kota: **choropleth memakai rasio** (kejadian per 1.000 km²), bukan angka absolut. Satu kelas khusus untuk wilayah tanpa kejadian, lalu **kuintil** untuk wilayah yang pernah terbakar. Batas kelas dihitung dari gabungan enam tahun agar warna antar-tahun sebanding. Lingkaran proporsional berukuran ∝ √jumlah kejadian. Klaster **LISA** dibaca dari kolom `lisa_klaster` pada GeoJSON (TODO: sebut alat dan bobot spasial yang dipakai).
+- Geometri disederhanakan (Douglas-Peucker, ±550 m) dengan `scripts/prep_geojson.py` agar ringan di peramban.
 
-**Alat bantu AI.** TODO: tuliskan deklarasi penggunaan alat bantu AI sesuai ketentuan ujian (juga di bagian Metodologi makalah).
+**Rancangan visual.** Palet Okabe-Ito untuk kategori dan skala luminans monoton (api/inferno) untuk nilai berurutan, sehingga aman bagi buta warna. Pada sunburst dan treemap, ukuran = jumlah kejadian dan warna = porsi karhutla. Interaksi: *brushing & linking*, *drill-down* dengan *breadcrumb*, filter periode, tooltip, zoom/pan, dan kontrol layer.
+
+**Alat bantu AI.** Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web dan kode aplikasi. Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
+
+### Keterbatasan
+- **Waktu**: data provinsi hanya satu tahun ({TAHUN}), jadi pola musiman dan antartahun tidak terlihat. Data 2026 masih parsial.
+- **Agregasi**: rata-rata per provinsi menyembunyikan variasi antar-kabupaten dan antar-tutupan lahan.
+- **Data satelit**: ekstraksi memakai skala 5 km (agar GEE tidak kehabisan memori), sehingga provinsi kecil seperti DKI Jakarta dan DI Yogyakarta hanya diwakili sedikit piksel. Resolusi tiap sumber berbeda (500 m hingga ±11 km), dan tidak dilakukan penyaringan awan atau kualitas piksel (QA) sebelum dirata-ratakan.
+- **NBR dan RH**: NBR dirata-ratakan selama setahun sebagai penanda kondisi vegetasi dan kekeringan, bukan sebagai ukuran tingkat keparahan area terbakar (dNBR). RH dihitung dari suhu dan titik embun rata-rata bulanan sehingga hanya perkiraan, bukan pengukuran langsung.
+- **Indeks Kondisi Rentan**: berbobot sama dan belum divalidasi terhadap titik panas atau kejadian aktual; sifatnya deskriptif, bukan prediktif.
+- **Statistik**: n = 38 membuat PCA dan korelasi bersifat eksploratif; korelasi bukan sebab-akibat.
+- **Kualitas data kejadian**: bergantung pada pelaporan daerah, dan definisi pencatatan BNPB berbeda dengan BPS.
+- **Peta kab/kota**: kota kecil mudah tampil ekstrem karena penyebut luas yang kecil; klaster LISA tidak mengikuti filter periode dan bergantung pada bobot spasial.
+- **Batas wilayah**: shapefile non-resmi bisa berbeda dari batas dan kode BPS terbaru (mis. pemekaran Papua), dan penyederhanaan geometri mengurangi presisi garis batas.
+- **Teks**: korpus hanya judul dan abstrak; jumlah topik LDA ditentukan manual.
 """)
 
 html(f"""<div class="footer">Dibuat untuk UAS Visualisasi Data dan Informasi 2026 &bull; Politeknik Statistika STIS &bull;
