@@ -89,7 +89,7 @@ Menu navigasi memakai `st.html(..., unsafe_allow_javascript=True)` (Streamlit �
 - Jumlah kejadian bencana: `log1p` lalu z-score sebelum PCA. Korelasi memakai Spearman (n = 38, distribusi miring).
 - **Indeks Kondisi Rentan** = rata-rata min–max dari LST (tinggi), curah hujan, RH, NBR, dan NDVI (rendah) dengan bobot sama. Ini ringkasan deskriptif, **bukan model prediksi**.
 - Peta kab/kota: choropleth memakai rasio (kejadian per 1.000 km²). Kelas = 1 kelas "tanpa kejadian" + kuintil dari wilayah yang pernah terbakar (identik dengan kolom `kelas_kepadatan`). Batas kelas dihitung dari gabungan 2021–2026 agar warna antar-tahun sebanding.
-- Klaster LISA dibaca dari kolom `lisa_klaster` dan tidak mengikuti filter periode.
+- Klaster LISA (Moran lokal, PySAL `esda`/`libpysal`) dihitung pada y = ln(1 + rasio) dengan bobot KNN k = 5 dan 999 permutasi (p < 0,05), dari kejadian gabungan 2021–2026. Hasilnya dibaca dari kolom `lisa_klaster` dan tidak mengikuti filter periode. Luas wilayah dihitung pada proyeksi EPSG:6933.
 - Palet: Okabe-Ito (ramah buta warna), skala api dengan luminans monoton, dan diverging biru–oranye. Teks dan angka disertai satuan, legenda, dan keterangan "Sumber: BPS".
 
 ## Keterbatasan
@@ -104,9 +104,9 @@ Menu navigasi memakai `st.html(..., unsafe_allow_javascript=True)` (Streamlit �
 
 ## Penggunaan alat bantu AI
 
-Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web dan kode aplikasi. Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
+Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web, kode aplikasi, serta kode pengolahan data kejadian dan analisis spasial (rasio, klaster LISA). Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
 
 ## Identitas
 
-**Penulis:** Alisha Islami Zukhruf · 3SD2 · Politeknik Statistika STIS
+**Penulis:** NAMA LENGKAP, NIM · Kelas 3SD · Politeknik Statistika STIS
 Mata kuliah Visualisasi Data dan Informasi (K203407), UAS Semester Genap TA 2025/2026.
