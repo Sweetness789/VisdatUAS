@@ -141,6 +141,7 @@ h1,h2,h3 {font-family:'Bebas Neue','Inter',sans-serif; letter-spacing:.04em;}
 .hero-title span {background:linear-gradient(180deg,#fff2a8,#ff9f1c 45%,#e63946); -webkit-background-clip:text; background-clip:text;
   color:transparent; text-shadow:none; filter:drop-shadow(0 0 14px rgba(255,100,0,.7));}
 .hero-sub {max-width:720px; margin:.4rem auto 1.4rem; color:#e9d8c4; font-size:1.08rem; animation:fadeUp 1s .25s ease both;}
+.hero .hero-sub {max-width:760px; width:100%; margin:.4rem auto 1.4rem !important; text-align:center !important;}
 .hero-logo {font-size:3rem; animation:bob 2.6s ease-in-out infinite;}
 .hero-logo img {height:64px; filter:drop-shadow(0 0 14px rgba(255,120,0,.8));}
 .kpis {display:flex; flex-wrap:wrap; gap:.8rem; justify-content:center; animation:fadeUp 1s .4s ease both;}
@@ -425,9 +426,11 @@ hero()
 # =============================================================================
 # 5. BAB 1 - DATA BERDIMENSI TINGGI (PCA + RADAR + HEATMAP, brushing & linking)
 # =============================================================================
-bab(1, "PETA KERENTANAN", "Sepuluh variabel (lima indikator satelit, lima jenis bencana) diringkas menjadi dua sumbu. "
-    "Provinsi yang berdekatan di peta ini punya \"watak\" lingkungan dan kebencanaan yang mirip. "
-    "Blok / lasso titik di bawah, radar dan heatmap ikut menyesuaikan.", "satelit")
+bab(1, "PETA KERENTANAN",
+    "Mengekstraksi sepuluh variabel, lima indikator satelit dan lima jenis bencana, ke dalam dua dimensi utama. "
+    "Jarak antarprovinsi pada peta ini menyingkap kemiripan profil ekologi dan kerentanannya. "
+    "Gunakan fitur lasso atau blok titik di bawah untuk melihat bagaimana grafik radar dan matriks korelasi "
+    "mengungkap detailnya secara dinamis.", "satelit")
 
 if "reset" not in st.session_state:
     st.session_state.reset = 0
@@ -435,45 +438,62 @@ if "reset" not in st.session_state:
 scores, evr, load = pca_fit(df)
 df["pc1"], df["pc2"] = scores[:, 0], scores[:, 1]
 
-c_ctrl1, c_ctrl2, c_ctrl3 = st.columns([2.4, 1, 1])
-with c_ctrl1:
-    manual = st.multiselect("Pilih provinsi (alternatif untuk layar sentuh)", df.prov.tolist(), key=f"manual_{st.session_state.reset}",
-                            placeholder="Ketik nama provinsi…")
-with c_ctrl2:
-    biplot = st.toggle("Panah variabel (biplot)", value=True)
-with c_ctrl3:
-    st.write("")
-    if st.button("↺ Reset pilihan"):
+# Baris kontrol: kiri = pengaturan PCA, kanan = pemilihan provinsi untuk radar
+ctl_l, ctl_r = st.columns([1.1, 1])
+with ctl_l:
+    k1, k2 = st.columns([1.5, 1])
+    biplot = k1.toggle("Tampilkan panah variabel (biplot)", value=False)
+    if k2.button("↺ Reset pilihan", use_container_width=True):
         st.session_state.reset += 1
         st.rerun()
+with ctl_r:
+    manual = st.multiselect("Provinsi untuk dibandingkan di radar", df.prov.tolist(), key=f"manual_{st.session_state.reset}",
+                            placeholder="Pilih provinsi untuk radar (atau blok di PCA)…", label_visibility="collapsed")
 
+TINGGI = 560
 col_a, col_b = st.columns([1.1, 1])
+SINGKAT = {"ndvi": "NDVI", "lst": "LST", "nbr": "NBR", "hujan": "Hujan", "rh": "RH", "longsor": "Longsor",
+           "banjir": "Banjir", "kering": "Kering", "karhutla": "Karhutla", "cuaca": "Cuaca"}
+
+
+def rgba(hex_, a):
+    h = hex_.lstrip("#")
+    return f"rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})"
+
 
 with col_a:
-    warna = np.where(df.kalimantan, API, NETRAL)
-    ukuran = 9 + np.sqrt(df.karhutla) * 1.5
+    ukuran = 8 + np.sqrt(df.karhutla) * 1.5
+    teratas = list(df.nlargest(6, "karhutla").index)
+    posisi = ["top center"] * len(df)
+    for r, i in enumerate(teratas):                       # selang-seling agar label tidak bertabrakan
+        posisi[i] = ["top center", "bottom center", "middle right", "middle left", "top center", "bottom center"][r]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=df.pc1, y=df.pc2, mode="markers+text", text=np.where(df.karhutla >= 75, df.prov, ""),
-        textposition="top center", textfont=dict(size=10, color="#f3e9dc"),
-        marker=dict(size=ukuran, color=warna, line=dict(width=1, color="#140d0d"), opacity=0.92),
+        x=df.pc1, y=df.pc2, mode="markers+text", text=[p if i in teratas else "" for i, p in zip(df.index, df.prov)],
+        textposition=posisi, textfont=dict(size=10, color="#f3e9dc"), cliponaxis=False,
+        marker=dict(size=ukuran, color=NETRAL, line=dict(width=1, color="#140d0d"), opacity=0.9),
         customdata=np.c_[df.prov, df.pulau, df.karhutla, df.indeks.round(1)],
         hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]}<br>Karhutla: %{customdata[2]} kejadian"
                       "<br>Indeks kondisi rentan: %{customdata[3]}<extra></extra>",
-        showlegend=False, selected=dict(marker=dict(opacity=1)), unselected=dict(marker=dict(opacity=0.28))))
-    for nama, w in (("Kalimantan", API), ("Pulau lain", NETRAL)):   # legenda manual
-        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", marker=dict(size=10, color=w), name=nama, hoverinfo="skip"))
+        selected=dict(marker=dict(opacity=1, color=API)), unselected=dict(marker=dict(opacity=0.3))))
+    xs, ys = df.pc1.abs().max(), df.pc2.abs().max()
+    xr, yr = [-xs * 1.15, xs * 1.15], [-ys * 1.2, ys * 1.2]
     if biplot:
-        sk = 2.6
+        sk = 0.85 * min(xs / np.abs(load[:, 0]).max(), ys / np.abs(load[:, 1]).max())
         for i, v in enumerate(NUM):
-            fig.add_annotation(x=load[i, 0] * sk, y=load[i, 1] * sk, ax=0, ay=0, xref="x", yref="y", axref="x", ayref="y",
-                               showarrow=True, arrowhead=3, arrowwidth=1.2, arrowcolor="rgba(240,228,66,.75)")
-            fig.add_annotation(x=load[i, 0] * sk * 1.08, y=load[i, 1] * sk * 1.08, text=LABEL[v].split(" (")[0],
-                               showarrow=False, font=dict(size=9, color="#F0E442"))
-    fig.update_xaxes(title=f"PC1 ({evr[0]*100:.1f}% varians)", zeroline=True, zerolinecolor="rgba(255,255,255,.15)", gridcolor="rgba(255,255,255,.05)")
-    fig.update_yaxes(title=f"PC2 ({evr[1]*100:.1f}% varians)", zeroline=True, zerolinecolor="rgba(255,255,255,.15)", gridcolor="rgba(255,255,255,.05)")
+            tx, ty = load[i, 0] * sk, load[i, 1] * sk
+            fig.add_annotation(x=tx, y=ty, ax=0, ay=0, xref="x", yref="y", axref="x", ayref="y", showarrow=True,
+                               arrowhead=2, arrowsize=0.9, arrowwidth=1, arrowcolor="rgba(240,228,66,.7)", text="")
+            fig.add_annotation(x=tx, y=ty, text=SINGKAT[v], showarrow=False, font=dict(size=9, color="#F0E442"),
+                               xanchor="left" if tx >= 0 else "right", yanchor="bottom" if ty >= 0 else "top",
+                               xshift=4 if tx >= 0 else -4)
+    fig.update_xaxes(title=dict(text=f"PC1 ({evr[0]*100:.1f}% varians)", standoff=8), range=xr, zeroline=True,
+                     zerolinecolor="rgba(255,255,255,.18)", gridcolor="rgba(255,255,255,.05)")
+    fig.update_yaxes(title=dict(text=f"PC2 ({evr[1]*100:.1f}% varians)", standoff=8), range=yr, zeroline=True,
+                     zerolinecolor="rgba(255,255,255,.18)", gridcolor="rgba(255,255,255,.05)")
     fig.update_layout(dragmode="lasso")
-    finish(fig, "PCA: kemiripan profil 38 provinsi", 520, "ukuran titik = jumlah kejadian Karhutla; warna = pulau", -0.17)
+    finish(fig, "PCA: kemiripan profil 38 provinsi", TINGGI, "ukuran titik = jumlah kejadian Karhutla", -0.2, legend=False)
+    fig.update_layout(margin=dict(l=10, r=10, t=56, b=90))
     ev = st.plotly_chart(fig, key=f"pca_{st.session_state.reset}", on_select="rerun",
                          selection_mode=("lasso", "box", "points"), **STRETCH)
 
@@ -489,29 +509,37 @@ sel = df.loc[sorted(picked)] if picked else df.iloc[0:0]
 # ---------- RADAR ----------
 with col_b:
     RADAR_WARNA = [API, "#F0E442", "#009E73", "#CC79A7", "#56B4E9", "#0072B2"]
-    RADAR = [("lst", "LST tinggi", False), ("ndvi", "NDVI terbalik", True), ("hujan", "Hujan rendah", True),
-             ("karhutla", "Kejadian Karhutla", False), ("kering", "Kekeringan", False)]
+    RADAR = [("lst", "LST<br>tinggi", False), ("ndvi", "NDVI<br>terbalik", True), ("hujan", "Hujan<br>rendah", True),
+             ("karhutla", "Kejadian<br>Karhutla", False), ("kering", "Kekeringan", False)]
     rn = pd.DataFrame({lab: (1 - minmax(df[c]) if inv else minmax(df[c])) for c, lab, inv in RADAR})
     labels = list(rn.columns)
     nasional = rn.mean()
     fokus = sel if len(sel) else df[df.kalimantan]
-    judul_fokus = "terpilih" if len(sel) else "Kalimantan (default)"
+    judul_fokus = "provinsi terpilih" if len(sel) else "Kalimantan"
     figr = go.Figure()
     figr.add_trace(go.Scatterpolar(r=list(nasional) + [nasional.iloc[0]], theta=labels + [labels[0]], name="Rata-rata nasional",
-                                   line=dict(color="#f3e9dc", dash="dash", width=2), fill="toself", fillcolor="rgba(243,233,220,.06)"))
-    if len(fokus) <= 6:
+                                   line=dict(color="#f3e9dc", dash="dash", width=2), fill="toself", fillcolor="rgba(243,233,220,.08)",
+                                   hovertemplate="%{theta}: %{r:.2f}<extra>Nasional</extra>"))
+    if len(fokus) <= 6:      # perbandingan per provinsi: garis saja agar tidak saling menimpa
         for i, (ix, rw) in enumerate(fokus.iterrows()):
             vals = rn.loc[ix]
             figr.add_trace(go.Scatterpolar(r=list(vals) + [vals.iloc[0]], theta=labels + [labels[0]], name=rw.prov,
+                                           mode="lines+markers", marker=dict(size=5),
                                            line=dict(color=RADAR_WARNA[i % len(RADAR_WARNA)], width=2.2),
-                                           fill="toself", opacity=0.75))
+                                           hovertemplate="%{theta}: %{r:.2f}<extra>" + rw.prov + "</extra>"))
     else:
         vals = rn.loc[fokus.index].mean()
         figr.add_trace(go.Scatterpolar(r=list(vals) + [vals.iloc[0]], theta=labels + [labels[0]], name=f"Rata-rata {len(fokus)} provinsi",
-                                       line=dict(color=API, width=2.6), fill="toself", fillcolor="rgba(213,94,0,.25)"))
-    figr.update_layout(polar=dict(bgcolor="rgba(0,0,0,0)", radialaxis=dict(range=[0, 1], tickvals=[0.25, .5, .75, 1], gridcolor="rgba(255,255,255,.12)"),
-                                 angularaxis=dict(gridcolor="rgba(255,255,255,.12)")))
-    finish(figr, f"Radar profil: {judul_fokus} vs nasional", 520, "skala 0-1 (min-max); NDVI & hujan dibalik agar \"makin luar = makin kering\"", -0.12)
+                                       line=dict(color=API, width=2.6), fill="toself", fillcolor=rgba(API, 0.25),
+                                       hovertemplate="%{theta}: %{r:.2f}<extra>Rata-rata terpilih</extra>"))
+    figr.update_layout(polar=dict(bgcolor="rgba(0,0,0,0)", domain=dict(x=[0.12, 0.88], y=[0.2, 0.9]),
+                                 radialaxis=dict(range=[0, 1], tickvals=[0.25, 0.5, 0.75, 1], tickfont=dict(size=9, color="#b8a99a"),
+                                                 gridcolor="rgba(255,255,255,.12)", angle=90),
+                                 angularaxis=dict(gridcolor="rgba(255,255,255,.12)", tickfont=dict(size=11))))
+    finish(figr, f"Radar profil: {judul_fokus} vs nasional", TINGGI,
+           "skala 0-1; NDVI dan hujan dibalik sehingga makin ke luar = makin kering", -0.2)
+    figr.update_layout(margin=dict(l=10, r=10, t=56, b=90),
+                       legend=dict(orientation="h", x=0.5, xanchor="center", y=0.1, yanchor="top", bgcolor="rgba(0,0,0,0)"))
     st.plotly_chart(figr, key="radar", **STRETCH)
 
 # ---------- HEATMAP BERKLASTER ----------
@@ -539,23 +567,22 @@ rho = df[NUM].corr(method="spearman")["karhutla"].drop("karhutla")
 kuat = rho.abs().sort_values(ascending=False).index[0]
 kal = df[df.kalimantan]
 cerita(
-    f"<b>Apa yang terlihat?</b> Dua komponen utama menjelaskan <b>{(evr.sum())*100:.0f}%</b> keragaman data. "
-    f"Di antara seluruh variabel, kejadian Karhutla paling berkaitan dengan <b>{LABEL[kuat]}</b> (ρ = {rho[kuat]:.2f}), "
-    f"sedangkan hubungannya dengan LST sebesar ρ = {rho['lst']:.2f} dan dengan curah hujan ρ = {rho['hujan']:.2f}. "
-    f"Artinya, suhu permukaan dan kelembapan <i>membantu</i> menjelaskan, tetapi bukan penentu tunggal: "
-    f"lima provinsi Kalimantan rata-rata mencatat {kal.karhutla.mean():.0f} kejadian Karhutla per provinsi "
-    f"dibandingkan {df[~df.kalimantan].karhutla.mean():.0f} di luar Kalimantan, padahal indeks kondisi rentannya "
-    f"({kal.indeks.mean():.0f}) {'justru di bawah' if kal.indeks.mean() < df.indeks.mean() else 'hanya sedikit di atas'} "
-    f"rata-rata nasional ({df.indeks.mean():.0f}). "
-    f"Faktor lain seperti tipe lahan dan aktivitas manusia kemungkinan ikut berperan."
+    f"<b>Di balik titik dan garis korelasi:</b> Peta dua dimensi ini menyingkap <b>{evr.sum()*100:.0f}%</b> rahasia dari data kita. "
+    f"Api nyatanya paling cepat menyala saat kelembapan udara terkikis (ρ = {rho['rh']:.2f}) dan panas permukaan memuncak "
+    f"(ρ = {rho['lst']:.2f}). Namun, cuaca seolah mengelabui kita. Kalimantan adalah bukti nyatanya: meski indeks kerentanan "
+    f"iklimnya tergolong rendah di angka {kal.indeks.mean():.0f} (di bawah rata-rata nasional {df.indeks.mean():.0f}), "
+    f"kelima provinsinya justru membara dengan rata-rata {kal.karhutla.mean():.0f} kejadian Karhutla. Anomali tajam ini "
+    f"menegaskan bahwa suhu dan cuaca hanyalah pemantik; bahan bakar utamanya diduga kuat berasal dari jenis lahan dan "
+    f"jejak aktivitas manusia."
 )
 
 
 # =============================================================================
 # 6. BAB 2 - DATA BERHIERARKI (SUNBURST + TREEMAP, drill-down + breadcrumb)
 # =============================================================================
-bab(2, "ANATOMI BENCANA", "Indonesia → Pulau → Provinsi → Jenis bencana. Ukuran = jumlah kejadian; warna = persentase Karhutla "
-    "terhadap seluruh bencana di wilayah itu (makin merah pekat, makin didominasi api).", "hutan")
+bab(2, "ANATOMI BENCANA",
+    "Membedah anatomi bencana lapis demi lapis: dari skala nasional, mengerucut ke pulau, provinsi, hingga jenis insidennya. "
+    "Luas bidang merepresentasikan frekuensi kejadian, sementara intensitas warna merah menyingkap persentase Karhutla.", "hutan")
 
 
 @st.cache_data
@@ -585,9 +612,8 @@ path = st.session_state.path
 
 # --- breadcrumb ---
 crumbs = ["Indonesia"] + path
-cols = st.columns([1] * len(crumbs) + [max(1, 6 - len(crumbs))])
-for i, nm in enumerate(crumbs):
-    with cols[i]:
+with st.container(horizontal=True, gap="small", key="crumbbar"):
+    for i, nm in enumerate(crumbs):
         if st.button(("🔥 " if i == 0 else "› ") + nm, key=f"crumb_{i}_{nm}"):
             st.session_state.path = path[:i]
             st.rerun()
@@ -600,11 +626,10 @@ elif len(path) == 1:
 else:
     anak = []
 if anak:
-    st.caption("Masuk lebih dalam:" if len(path) < 2 else "")
-    for chunk in [anak[i:i + 5] for i in range(0, len(anak), 5)]:
-        cc = st.columns(len(chunk))
-        for j, nm in enumerate(chunk):
-            if cc[j].button(nm, key=f"go_{len(path)}_{nm}"):
+    st.caption("Telusuri rekam jejak di:")
+    with st.container(horizontal=True, gap="small", key="drillbar"):
+        for nm in anak:
+            if st.button(nm, key=f"go_{len(path)}_{nm}"):
                 st.session_state.path = path + [nm]
                 st.rerun()
 else:
