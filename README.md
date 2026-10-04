@@ -104,7 +104,7 @@ Menu navigasi memakai `st.html(..., unsafe_allow_javascript=True)` (Streamlit â‰
 
 ## Penggunaan alat bantu AI
 
-Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web, kode aplikasi, serta kode pengolahan data kejadian dan analisis spasial (rasio, klaster LISA). Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
+Claude (Anthropic) digunakan sebagai alat bantu untuk menyusun struktur halaman web, kode aplikasi, serta kode pengolahan data kejadian dan analisis spasial (klaster LISA). Pengumpulan dan pengolahan data (Excel, Google Earth Engine, QGIS, Python), pemilihan teknik visualisasi, interpretasi, dan seluruh isi proyek menjadi tanggung jawab penulis.
 
 ## Identitas
 
