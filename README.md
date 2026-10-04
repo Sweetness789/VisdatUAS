@@ -1,10 +1,10 @@
-# 🔥 Titik Api Nusantara: Deteksi Potensi Karhutla per Provinsi (2025)
+# Titik Api Nusantara: Deteksi Potensi Karhutla per Provinsi (2025)
 
 Web *data storytelling* berbasis Streamlit untuk **UAS Visualisasi Data dan Informasi 2026**, Politeknik Statistika STIS (Program Studi D-IV Komputasi Statistik).
 
 | | |
 |---|---|
-| **Demo publik** | https://NAMA-APP.streamlit.app |
+| **Demo publik** | https://karhutlastory.streamlit.app |
 | **Repositori** | https://github.com/Sweetness789/VisdatUAS |
 
 ## Ringkasan
